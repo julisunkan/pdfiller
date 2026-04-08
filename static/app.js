@@ -4,69 +4,104 @@
 
 // ── State ──────────────────────────────────────────────────────
 const state = {
+  mode: 'fill',          // 'fill' | 'create'
   pdfId: null,
-  pdfDoc: null,         // PDF.js document
+  pdfDoc: null,          // PDF.js document
   currentPage: 1,
   totalPages: 1,
-  scale: 1,
-  fields: [],           // [{id, type, page, x_pct, y_pct, w_pct, h_pct, value}]
-  activeTool: null,     // 'text' | 'signature'
+  scale: 1.5,
+  fields: [],            // [{id, type, page, x_pct, y_pct, w_pct, h_pct, value/label/placeholder}]
+  activeTool: null,      // 'text' | 'signature' | 'checkbox'
   selectedFieldId: null,
-  pendingSigFieldId: null,  // field waiting for signature
+  pendingSigFieldId: null,
+  pendingLabelFieldId: null,
+  docName: 'fillable_form',
 };
 
 // ── DOM refs ───────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
-const dropZone          = $('dropZone');
-const fileInput         = $('fileInput');
-const uploadProgress    = $('uploadProgress');
-const progressFill      = $('progressFill');
-const progressLabel     = $('progressLabel');
-const uploadedInfo      = $('uploadedInfo');
-const uploadedName      = $('uploadedName');
-const btnChangeFile     = $('btnChangeFile');
-const toolsSection      = $('toolsSection');
-const fieldsSection     = $('fieldsSection');
-const generateSection   = $('generateSection');
-const headerActions     = $('headerActions');
-const pdfPlaceholder    = $('pdfPlaceholder');
-const pdfViewerWrap     = $('pdfViewerWrap');
-const pdfCanvas         = $('pdfCanvas');
-const fieldsOverlay     = $('fieldsOverlay');
-const pdfCanvasContainer= $('pdfCanvasContainer');
-const fieldList         = $('fieldList');
-const fieldCount        = $('fieldCount');
-const pageNav           = $('pageNav');
-const pageLabel         = $('pageLabel');
-const btnPrevPage       = $('btnPrevPage');
-const btnNextPage       = $('btnNextPage');
-const btnAddText        = $('btnAddText');
-const btnAddSignature   = $('btnAddSignature');
-const btnGenerate       = $('btnGenerate');
-const downloadArea      = $('downloadArea');
-const downloadLink      = $('downloadLink');
-const notification      = $('notification');
+// Mode tabs
+const tabFill             = $('tabFill');
+const tabCreate           = $('tabCreate');
+const fillModePanel       = $('fillModePanel');
+const createModePanel     = $('createModePanel');
 
-// Signature modal
-const sigModal          = $('sigModal');
-const closeSigModal     = $('closeSigModal');
-const sigCanvas         = $('sigCanvas');
-const btnClearSig       = $('btnClearSig');
-const btnSaveSig        = $('btnSaveSig');
+// Upload (fill mode)
+const dropZone            = $('dropZone');
+const fileInput           = $('fileInput');
+const uploadProgress      = $('uploadProgress');
+const progressFill        = $('progressFill');
+const progressLabel       = $('progressLabel');
+const uploadedInfo        = $('uploadedInfo');
+const uploadedName        = $('uploadedName');
+const btnChangeFile       = $('btnChangeFile');
+
+// Create mode
+const pageSizeSelect      = $('pageSizeSelect');
+const docNameInput        = $('docNameInput');
+const btnNewBlank         = $('btnNewBlank');
+const createFileInfo      = $('createFileInfo');
+const createFileName      = $('createFileName');
+const btnResetCreate      = $('btnResetCreate');
+
+// Shared tools/fields/generate
+const toolsSection        = $('toolsSection');
+const fieldsSection       = $('fieldsSection');
+const generateSection     = $('generateSection');
+const headerActions       = $('headerActions');
+const btnAddText          = $('btnAddText');
+const btnAddSignature     = $('btnAddSignature');
+const btnAddCheckbox      = $('btnAddCheckbox');
+const toolHint            = $('toolHint');
+const pageNav             = $('pageNav');
+const pageLabel           = $('pageLabel');
+const btnPrevPage         = $('btnPrevPage');
+const btnNextPage         = $('btnNextPage');
+const fieldList           = $('fieldList');
+const fieldCount          = $('fieldCount');
+const btnGenerate         = $('btnGenerate');
+const btnCreateFillable   = $('btnCreateFillable');
+const downloadArea        = $('downloadArea');
+const downloadLink        = $('downloadLink');
+
+// PDF viewer
+const pdfPlaceholder      = $('pdfPlaceholder');
+const pdfPlaceholderText  = $('pdfPlaceholderText');
+const pdfViewerWrap       = $('pdfViewerWrap');
+const pdfCanvas           = $('pdfCanvas');
+const fieldsOverlay       = $('fieldsOverlay');
+const pdfCanvasContainer  = $('pdfCanvasContainer');
+
+// Notification
+const notification        = $('notification');
+
+// Sig modal
+const sigModal            = $('sigModal');
+const closeSigModal       = $('closeSigModal');
+const sigCanvas           = $('sigCanvas');
+const btnClearSig         = $('btnClearSig');
+const btnSaveSig          = $('btnSaveSig');
 
 // Save template modal
-const saveTemplateModal     = $('saveTemplateModal');
-const btnSaveTemplate       = $('btnSaveTemplate');
-const closeSaveTemplateModal= $('closeSaveTemplateModal');
-const templateName          = $('templateName');
-const btnConfirmSaveTemplate= $('btnConfirmSaveTemplate');
+const saveTemplateModal       = $('saveTemplateModal');
+const btnSaveTemplate         = $('btnSaveTemplate');
+const closeSaveTemplateModal  = $('closeSaveTemplateModal');
+const templateName            = $('templateName');
+const btnConfirmSaveTemplate  = $('btnConfirmSaveTemplate');
 
 // Load template modal
-const loadTemplateModal     = $('loadTemplateModal');
-const btnLoadTemplate       = $('btnLoadTemplate');
-const closeLoadTemplateModal= $('closeLoadTemplateModal');
-const templateListWrap      = $('templateListWrap');
+const loadTemplateModal       = $('loadTemplateModal');
+const btnLoadTemplate         = $('btnLoadTemplate');
+const closeLoadTemplateModal  = $('closeLoadTemplateModal');
+const templateListWrap        = $('templateListWrap');
+
+// Field label modal (create mode)
+const fieldLabelModal         = $('fieldLabelModal');
+const closeFieldLabelModal    = $('closeFieldLabelModal');
+const fieldLabelInput         = $('fieldLabelInput');
+const fieldPlaceholderInput   = $('fieldPlaceholderInput');
+const btnConfirmFieldLabel    = $('btnConfirmFieldLabel');
 
 
 // ── Notifications ──────────────────────────────────────────────
@@ -76,15 +111,66 @@ function notify(msg, type = 'info', duration = 3500) {
   notification.className = `notification ${type}`;
   notification.classList.remove('hidden');
   if (notifTimer) clearTimeout(notifTimer);
-  if (duration > 0) {
-    notifTimer = setTimeout(() => notification.classList.add('hidden'), duration);
-  }
+  if (duration > 0) notifTimer = setTimeout(() => notification.classList.add('hidden'), duration);
 }
 function notifyLoading(msg) { notify(msg, 'loading', 0); }
 function notifyHide() { notification.classList.add('hidden'); }
 
 
-// ── File Upload ────────────────────────────────────────────────
+// ── Mode Switching ─────────────────────────────────────────────
+tabFill.addEventListener('click', () => switchMode('fill'));
+tabCreate.addEventListener('click', () => switchMode('create'));
+
+function switchMode(mode) {
+  state.mode = mode;
+  tabFill.classList.toggle('active', mode === 'fill');
+  tabCreate.classList.toggle('active', mode === 'create');
+  fillModePanel.classList.toggle('hidden', mode !== 'fill');
+  createModePanel.classList.toggle('hidden', mode !== 'create');
+
+  // Update placeholder text
+  pdfPlaceholderText.textContent = mode === 'fill'
+    ? 'Upload a PDF to get started'
+    : 'Click "New Blank Document" to start designing your form';
+
+  // Toggle tools visibility
+  btnAddCheckbox.classList.toggle('hidden', mode !== 'create');
+  btnGenerate.classList.toggle('hidden', mode !== 'fill');
+  btnCreateFillable.classList.toggle('hidden', mode !== 'create');
+
+  // Tool hint
+  toolHint.textContent = mode === 'create'
+    ? 'Click a tool, then click on the canvas to place a form field.'
+    : 'Click a tool then click on the PDF to place the field.';
+
+  // Reset if switching modes
+  resetSession();
+}
+
+function resetSession() {
+  state.pdfId = null;
+  state.pdfDoc = null;
+  state.fields = [];
+  state.currentPage = 1;
+  state.totalPages = 1;
+  state.selectedFieldId = null;
+  state.activeTool = null;
+
+  fieldsOverlay.innerHTML = '';
+  pdfPlaceholder.classList.remove('hidden');
+  pdfViewerWrap.classList.add('hidden');
+  toolsSection.classList.add('hidden');
+  fieldsSection.classList.add('hidden');
+  generateSection.classList.add('hidden');
+  headerActions.classList.add('hidden');
+  downloadArea.classList.add('hidden');
+  pageNav.classList.add('hidden');
+  renderFieldList();
+  deactivateTools();
+}
+
+
+// ── File Upload (Fill Mode) ────────────────────────────────────
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 dropZone.addEventListener('drop', e => {
@@ -95,13 +181,18 @@ dropZone.addEventListener('drop', e => {
 });
 dropZone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
-btnChangeFile.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
+btnChangeFile.addEventListener('click', () => {
+  uploadedInfo.classList.add('hidden');
+  dropZone.classList.remove('hidden');
+  fileInput.value = '';
+  resetSession();
+  fileInput.click();
+});
 
 async function handleFile(file) {
   if (!file.name.endsWith('.pdf')) { notify('Only PDF files are accepted.', 'error'); return; }
   if (file.size > 20 * 1024 * 1024) { notify('File exceeds 20 MB limit.', 'error'); return; }
 
-  // Show progress
   uploadProgress.classList.remove('hidden');
   uploadedInfo.classList.add('hidden');
   progressFill.style.width = '0%';
@@ -120,36 +211,75 @@ async function handleFile(file) {
         progressLabel.textContent = `Uploading… ${pct}%`;
       }
     };
-
     const result = await new Promise((resolve, reject) => {
-      xhr.onload = () => {
-        if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
-        else reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed'));
-      };
+      xhr.onload = () => xhr.status === 200
+        ? resolve(JSON.parse(xhr.responseText))
+        : reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed'));
       xhr.onerror = () => reject(new Error('Network error'));
       xhr.send(formData);
     });
 
     progressFill.style.width = '100%';
-    progressLabel.textContent = 'Processing…';
+    uploadProgress.classList.add('hidden');
+    uploadedInfo.classList.remove('hidden');
+    uploadedName.textContent = result.original_name;
 
     state.pdfId = result.pdf_id;
     state.fields = [];
     state.currentPage = 1;
     state.totalPages = result.page_count;
-
-    uploadProgress.classList.add('hidden');
-    uploadedInfo.classList.remove('hidden');
-    uploadedName.textContent = result.original_name;
+    state.pdfDoc = null;
 
     showAppSections();
-    await loadPdfPage(state.currentPage);
+    await loadPdfPage(1);
     renderFieldList();
     notify(`Uploaded "${result.original_name}" — ${result.page_count} page(s)`, 'success');
-
   } catch (err) {
     uploadProgress.classList.add('hidden');
     notify(err.message, 'error');
+  }
+}
+
+
+// ── New Blank Document (Create Mode) ──────────────────────────
+btnNewBlank.addEventListener('click', createBlankDocument);
+btnResetCreate.addEventListener('click', () => {
+  createFileInfo.classList.add('hidden');
+  resetSession();
+});
+
+async function createBlankDocument() {
+  const pageSize = pageSizeSelect.value;
+  state.docName = docNameInput.value.trim() || 'fillable_form';
+  notifyLoading('Creating blank document…');
+  btnNewBlank.disabled = true;
+  try {
+    const res = await fetch('/create-blank', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page_size: pageSize }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create blank document');
+
+    state.pdfId = data.pdf_id;
+    state.fields = [];
+    state.currentPage = 1;
+    state.totalPages = 1;
+    state.pdfDoc = null;
+
+    createFileName.textContent = state.docName || 'Blank Form';
+    createFileInfo.classList.remove('hidden');
+
+    showAppSections();
+    await loadPdfPage(1);
+    renderFieldList();
+    notifyHide();
+    notify('Blank document ready — start adding fields!', 'success');
+  } catch (err) {
+    notify(err.message, 'error');
+  } finally {
+    btnNewBlank.disabled = false;
   }
 }
 
@@ -162,30 +292,26 @@ function showAppSections() {
   pdfViewerWrap.classList.remove('hidden');
   downloadArea.classList.add('hidden');
   if (state.totalPages > 1) pageNav.classList.remove('hidden');
+  // Show/hide correct generate button
+  btnGenerate.classList.toggle('hidden', state.mode !== 'fill');
+  btnCreateFillable.classList.toggle('hidden', state.mode !== 'create');
 }
 
 
 // ── PDF.js Rendering ───────────────────────────────────────────
 async function loadPdfPage(pageNum) {
   if (!state.pdfId) return;
-  notifyLoading('Rendering PDF…');
+  notifyLoading('Rendering page…');
   try {
-    const pdfUrl = `/pdf/${state.pdfId}`;
-
-    // Load document only once
     if (!state.pdfDoc) {
-      state.pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+      state.pdfDoc = await pdfjsLib.getDocument(`/pdf/${state.pdfId}`).promise;
     }
-
     const page = await state.pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1.5 });
-    state.scale = 1.5;
+    const viewport = page.getViewport({ scale: state.scale });
 
     pdfCanvas.width = viewport.width;
     pdfCanvas.height = viewport.height;
-
-    const ctx = pdfCanvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: pdfCanvas.getContext('2d'), viewport }).promise;
 
     state.currentPage = pageNum;
     pageLabel.textContent = `Page ${pageNum} / ${state.totalPages}`;
@@ -199,68 +325,78 @@ async function loadPdfPage(pageNum) {
   }
 }
 
-btnPrevPage.addEventListener('click', () => {
-  if (state.currentPage > 1) loadPdfPage(state.currentPage - 1);
-});
-btnNextPage.addEventListener('click', () => {
-  if (state.currentPage < state.totalPages) loadPdfPage(state.currentPage + 1);
-});
+btnPrevPage.addEventListener('click', () => { if (state.currentPage > 1) loadPdfPage(state.currentPage - 1); });
+btnNextPage.addEventListener('click', () => { if (state.currentPage < state.totalPages) loadPdfPage(state.currentPage + 1); });
 
 
 // ── Tool Selection ─────────────────────────────────────────────
 btnAddText.addEventListener('click', () => setActiveTool('text'));
 btnAddSignature.addEventListener('click', () => setActiveTool('signature'));
+btnAddCheckbox.addEventListener('click', () => setActiveTool('checkbox'));
 
 function setActiveTool(tool) {
   if (state.activeTool === tool) {
-    state.activeTool = null;
-    btnAddText.classList.remove('active');
-    btnAddSignature.classList.remove('active');
-    pdfCanvasContainer.style.cursor = 'default';
+    deactivateTools();
   } else {
     state.activeTool = tool;
     btnAddText.classList.toggle('active', tool === 'text');
     btnAddSignature.classList.toggle('active', tool === 'signature');
+    btnAddCheckbox.classList.toggle('active', tool === 'checkbox');
     pdfCanvasContainer.style.cursor = 'crosshair';
   }
+}
+
+function deactivateTools() {
+  state.activeTool = null;
+  btnAddText.classList.remove('active');
+  btnAddSignature.classList.remove('active');
+  btnAddCheckbox.classList.remove('active');
+  pdfCanvasContainer.style.cursor = 'default';
 }
 
 
 // ── Place Field on Click ───────────────────────────────────────
 pdfCanvasContainer.addEventListener('click', e => {
   if (!state.activeTool) return;
-  if (e.target.closest('.field-widget')) return;  // clicked existing field
+  if (e.target.closest('.field-widget')) return;
 
   const rect = pdfCanvas.getBoundingClientRect();
   const cx = e.clientX - rect.left;
   const cy = e.clientY - rect.top;
-
-  // Convert to percentage of canvas size
   const x_pct = (cx / pdfCanvas.width) * 100;
   const y_pct = (cy / pdfCanvas.height) * 100;
 
-  const fieldId = 'f_' + Date.now();
+  const ftype = state.activeTool;
+  const textCount = state.fields.filter(f => f.type === 'text').length;
+  const sigCount  = state.fields.filter(f => f.type === 'signature').length;
+  const cbCount   = state.fields.filter(f => f.type === 'checkbox').length;
+
+  const defaultLabel = ftype === 'text'      ? `Text Field ${textCount + 1}`
+                     : ftype === 'signature' ? `Signature ${sigCount + 1}`
+                     :                         `Checkbox ${cbCount + 1}`;
+
   const field = {
-    id: fieldId,
-    type: state.activeTool,
-    page: state.currentPage - 1,    // 0-indexed for backend
+    id: 'f_' + Date.now(),
+    type: ftype,
+    page: state.currentPage - 1,
     x_pct,
     y_pct,
-    w_pct: state.activeTool === 'signature' ? 18 : 20,
-    h_pct: state.activeTool === 'signature' ? 8 : 5,
+    w_pct: ftype === 'checkbox' ? 30 : ftype === 'signature' ? 20 : 25,
+    h_pct: ftype === 'checkbox' ? 5  : ftype === 'signature' ? 8  : 5,
     value: '',
-    label: state.activeTool === 'text' ? `Text ${state.fields.filter(f=>f.type==='text').length + 1}`
-                                        : `Signature ${state.fields.filter(f=>f.type==='signature').length + 1}`,
+    label: defaultLabel,
+    placeholder: '',
   };
 
   state.fields.push(field);
   addFieldWidget(field);
   renderFieldList();
-  setActiveTool(null);  // deactivate after placing
+  deactivateTools();
 
-  // If signature, open sig modal immediately
-  if (field.type === 'signature') {
-    openSigModal(fieldId);
+  if (ftype === 'signature' && state.mode === 'fill') {
+    openSigModal(field.id);
+  } else if (state.mode === 'create') {
+    openFieldLabelModal(field.id);
   }
 });
 
@@ -287,7 +423,14 @@ function addFieldWidget(field) {
   const controls = document.createElement('div');
   controls.className = 'widget-controls';
 
-  if (field.type === 'signature') {
+  if (state.mode === 'create') {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'widget-ctrl-btn';
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Edit field properties';
+    editBtn.addEventListener('click', e => { e.stopPropagation(); openFieldLabelModal(field.id); });
+    controls.appendChild(editBtn);
+  } else if (field.type === 'signature') {
     const editBtn = document.createElement('button');
     editBtn.className = 'widget-ctrl-btn';
     editBtn.textContent = '✏️';
@@ -302,29 +445,56 @@ function addFieldWidget(field) {
   delBtn.title = 'Delete field';
   delBtn.addEventListener('click', e => { e.stopPropagation(); deleteField(field.id); });
   controls.appendChild(delBtn);
-
   el.appendChild(controls);
 
-  // Content
-  if (field.type === 'text') {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = field.value;
-    input.placeholder = 'Type here…';
-    input.addEventListener('input', () => { field.value = input.value; });
-    input.addEventListener('mousedown', e => e.stopPropagation());
-    el.appendChild(input);
-  } else {
-    if (field.value) {
-      const img = document.createElement('img');
-      img.src = field.value;
-      img.className = 'sig-preview';
-      el.appendChild(img);
+  if (state.mode === 'create') {
+    // Show field design preview (label + placeholder)
+    if (field.type === 'checkbox') {
+      el.classList.add('checkbox-widget');
+      const box = document.createElement('div');
+      box.className = 'checkbox-box';
+      const lbl = document.createElement('span');
+      lbl.className = 'create-label';
+      lbl.textContent = field.placeholder || field.label;
+      el.appendChild(box);
+      el.appendChild(lbl);
     } else {
-      const ph = document.createElement('div');
-      ph.className = 'sig-placeholder';
-      ph.textContent = '✍ Click to sign';
+      el.classList.add('create-text-widget');
+      const badge = document.createElement('span');
+      badge.className = 'field-type-badge';
+      badge.textContent = field.type === 'signature' ? 'sig' : 'text';
+      const lbl = document.createElement('span');
+      lbl.className = 'create-label';
+      lbl.textContent = field.label;
+      const ph = document.createElement('span');
+      ph.className = 'create-placeholder';
+      ph.textContent = field.placeholder || 'No placeholder set';
+      el.appendChild(badge);
+      el.appendChild(lbl);
       el.appendChild(ph);
+    }
+  } else {
+    // Fill mode content
+    if (field.type === 'text') {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = field.value;
+      input.placeholder = 'Type here…';
+      input.addEventListener('input', () => { field.value = input.value; });
+      input.addEventListener('mousedown', e => e.stopPropagation());
+      el.appendChild(input);
+    } else if (field.type === 'signature') {
+      if (field.value) {
+        const img = document.createElement('img');
+        img.src = field.value;
+        img.className = 'sig-preview';
+        el.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'sig-placeholder';
+        ph.textContent = '✍ Click to sign';
+        el.appendChild(ph);
+      }
     }
   }
 
@@ -333,10 +503,8 @@ function addFieldWidget(field) {
   resizer.className = 'resize-handle';
   el.appendChild(resizer);
 
-  // Drag
   makeDraggable(el, field, resizer);
 
-  // Select
   el.addEventListener('mousedown', e => {
     if (e.target.closest('.widget-ctrl-btn') || e.target === resizer) return;
     selectField(field.id);
@@ -357,10 +525,15 @@ function selectField(id) {
 
 function deleteField(id) {
   state.fields = state.fields.filter(f => f.id !== id);
-  const el = fieldsOverlay.querySelector(`[data-id="${id}"]`);
-  if (el) el.remove();
+  fieldsOverlay.querySelector(`[data-id="${id}"]`)?.remove();
   if (state.selectedFieldId === id) state.selectedFieldId = null;
   renderFieldList();
+}
+
+function refreshWidget(field) {
+  const existing = fieldsOverlay.querySelector(`[data-id="${field.id}"]`);
+  if (existing) existing.remove();
+  addFieldWidget(field);
 }
 
 
@@ -373,7 +546,6 @@ function makeDraggable(el, field, resizer) {
     if (e.target.closest('.widget-ctrl-btn') || e.target === resizer) return;
     if (e.target.tagName === 'INPUT') return;
     dragging = true;
-    const rect = fieldsOverlay.getBoundingClientRect();
     startX = e.clientX;
     startY = e.clientY;
     startLeft = (field.x_pct / 100) * fieldsOverlay.clientWidth;
@@ -383,20 +555,16 @@ function makeDraggable(el, field, resizer) {
 
   resizer.addEventListener('mousedown', e => {
     resizing = true;
-    startX = e.clientX;
-    startY = e.clientY;
+    startX = e.clientX; startY = e.clientY;
     startW = (field.w_pct / 100) * fieldsOverlay.clientWidth;
     startH = (field.h_pct / 100) * fieldsOverlay.clientHeight;
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
   });
 
   document.addEventListener('mousemove', e => {
     if (!dragging && !resizing) return;
-    const ow = fieldsOverlay.clientWidth;
-    const oh = fieldsOverlay.clientHeight;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
+    const ow = fieldsOverlay.clientWidth, oh = fieldsOverlay.clientHeight;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
 
     if (dragging) {
       const newLeft = Math.max(0, Math.min(startLeft + dx, ow - el.offsetWidth));
@@ -406,12 +574,9 @@ function makeDraggable(el, field, resizer) {
       el.style.left = field.x_pct + '%';
       el.style.top  = field.y_pct + '%';
     }
-
     if (resizing) {
-      const newW = Math.max(40, startW + dx);
-      const newH = Math.max(20, startH + dy);
-      field.w_pct = (newW / ow) * 100;
-      field.h_pct = (newH / oh) * 100;
+      field.w_pct = (Math.max(40, startW + dx) / ow) * 100;
+      field.h_pct = (Math.max(20, startH + dy) / oh) * 100;
       el.style.width  = field.w_pct + '%';
       el.style.height = field.h_pct + '%';
     }
@@ -432,7 +597,7 @@ function renderFieldList() {
 
     const icon = document.createElement('span');
     icon.className = 'field-icon';
-    icon.textContent = f.type === 'text' ? '𝖳' : '✍';
+    icon.textContent = f.type === 'text' ? '𝖳' : f.type === 'checkbox' ? '☑' : '✍';
 
     const label = document.createElement('span');
     label.className = 'field-label';
@@ -448,11 +613,7 @@ function renderFieldList() {
     del.title = 'Delete field';
     del.addEventListener('click', e => { e.stopPropagation(); deleteField(f.id); });
 
-    li.appendChild(icon);
-    li.appendChild(label);
-    li.appendChild(pg);
-    li.appendChild(del);
-
+    li.appendChild(icon); li.appendChild(label); li.appendChild(pg); li.appendChild(del);
     li.addEventListener('click', () => {
       if (f.page !== state.currentPage - 1) {
         loadPdfPage(f.page + 1).then(() => selectField(f.id));
@@ -460,7 +621,6 @@ function renderFieldList() {
         selectField(f.id);
       }
     });
-
     fieldList.appendChild(li);
   });
 }
@@ -481,52 +641,33 @@ function openSigModal(fieldId) {
   sigHasContent = false;
 }
 
-function closeSigModalFn() {
-  sigModal.classList.add('hidden');
-  state.pendingSigFieldId = null;
-}
-closeSigModal.addEventListener('click', closeSigModalFn);
-
+closeSigModal.addEventListener('click', () => { sigModal.classList.add('hidden'); state.pendingSigFieldId = null; });
 sigCanvas.addEventListener('mousedown', e => {
   sigDrawing = true;
   const r = sigCanvas.getBoundingClientRect();
-  sigCtx.beginPath();
-  sigCtx.moveTo(e.clientX - r.left, e.clientY - r.top);
+  sigCtx.beginPath(); sigCtx.moveTo(e.clientX - r.left, e.clientY - r.top);
 });
 sigCanvas.addEventListener('mousemove', e => {
   if (!sigDrawing) return;
   const r = sigCanvas.getBoundingClientRect();
   sigCtx.lineTo(e.clientX - r.left, e.clientY - r.top);
-  sigCtx.stroke();
-  sigHasContent = true;
+  sigCtx.stroke(); sigHasContent = true;
 });
 sigCanvas.addEventListener('mouseup', () => { sigDrawing = false; });
 sigCanvas.addEventListener('mouseleave', () => { sigDrawing = false; });
-
-// Touch support for signature
 sigCanvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  sigDrawing = true;
-  const r = sigCanvas.getBoundingClientRect();
-  const t = e.touches[0];
-  sigCtx.beginPath();
-  sigCtx.moveTo(t.clientX - r.left, t.clientY - r.top);
+  e.preventDefault(); sigDrawing = true;
+  const r = sigCanvas.getBoundingClientRect(), t = e.touches[0];
+  sigCtx.beginPath(); sigCtx.moveTo(t.clientX - r.left, t.clientY - r.top);
 }, { passive: false });
 sigCanvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  if (!sigDrawing) return;
-  const r = sigCanvas.getBoundingClientRect();
-  const t = e.touches[0];
+  e.preventDefault(); if (!sigDrawing) return;
+  const r = sigCanvas.getBoundingClientRect(), t = e.touches[0];
   sigCtx.lineTo(t.clientX - r.left, t.clientY - r.top);
-  sigCtx.stroke();
-  sigHasContent = true;
+  sigCtx.stroke(); sigHasContent = true;
 }, { passive: false });
 sigCanvas.addEventListener('touchend', () => { sigDrawing = false; });
-
-btnClearSig.addEventListener('click', () => {
-  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  sigHasContent = false;
-});
+btnClearSig.addEventListener('click', () => { sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height); sigHasContent=false; });
 
 btnSaveSig.addEventListener('click', () => {
   if (!sigHasContent) { notify('Please draw a signature first.', 'error'); return; }
@@ -534,11 +675,9 @@ btnSaveSig.addEventListener('click', () => {
   const field = state.fields.find(f => f.id === state.pendingSigFieldId);
   if (field) {
     field.value = dataUrl;
-    // Update widget
     const widget = fieldsOverlay.querySelector(`[data-id="${field.id}"]`);
     if (widget) {
-      const ph = widget.querySelector('.sig-placeholder');
-      if (ph) ph.remove();
+      widget.querySelector('.sig-placeholder')?.remove();
       let img = widget.querySelector('img');
       if (!img) {
         img = document.createElement('img');
@@ -550,18 +689,49 @@ btnSaveSig.addEventListener('click', () => {
     renderFieldList();
     notify('Signature saved!', 'success');
   }
-  closeSigModalFn();
+  sigModal.classList.add('hidden');
+  state.pendingSigFieldId = null;
 });
 
 
-// ── Generate PDF ───────────────────────────────────────────────
+// ── Field Label Modal (Create Mode) ───────────────────────────
+function openFieldLabelModal(fieldId) {
+  state.pendingLabelFieldId = fieldId;
+  const field = state.fields.find(f => f.id === fieldId);
+  fieldLabelInput.value = field ? field.label : '';
+  fieldPlaceholderInput.value = field ? field.placeholder : '';
+  fieldLabelModal.classList.remove('hidden');
+  setTimeout(() => fieldLabelInput.focus(), 50);
+}
+
+closeFieldLabelModal.addEventListener('click', () => { fieldLabelModal.classList.add('hidden'); state.pendingLabelFieldId = null; });
+fieldLabelModal.addEventListener('click', e => { if (e.target === fieldLabelModal) { fieldLabelModal.classList.add('hidden'); state.pendingLabelFieldId = null; } });
+
+btnConfirmFieldLabel.addEventListener('click', () => {
+  const field = state.fields.find(f => f.id === state.pendingLabelFieldId);
+  if (field) {
+    field.label = fieldLabelInput.value.trim() || field.label;
+    field.placeholder = fieldPlaceholderInput.value.trim();
+    refreshWidget(field);
+    renderFieldList();
+    notify('Field properties updated.', 'success');
+  }
+  fieldLabelModal.classList.add('hidden');
+  state.pendingLabelFieldId = null;
+});
+
+// Allow Enter key to confirm
+[fieldLabelInput, fieldPlaceholderInput].forEach(inp => {
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') btnConfirmFieldLabel.click(); });
+});
+
+
+// ── Generate Filled PDF (Fill Mode) ───────────────────────────
 btnGenerate.addEventListener('click', async () => {
   if (!state.pdfId) { notify('Upload a PDF first.', 'error'); return; }
   if (state.fields.length === 0) { notify('Add at least one field.', 'error'); return; }
-
   notifyLoading('Generating PDF…');
   btnGenerate.disabled = true;
-
   try {
     const res = await fetch(`/fill/${state.pdfId}`, {
       method: 'POST',
@@ -570,7 +740,6 @@ btnGenerate.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Generation failed');
-
     downloadLink.href = `/download/${data.filename}`;
     downloadLink.download = data.filename;
     downloadArea.classList.remove('hidden');
@@ -583,9 +752,36 @@ btnGenerate.addEventListener('click', async () => {
 });
 
 
+// ── Create Fillable PDF (Create Mode) ─────────────────────────
+btnCreateFillable.addEventListener('click', async () => {
+  if (!state.pdfId) { notify('Create a blank document first.', 'error'); return; }
+  if (state.fields.length === 0) { notify('Add at least one field to the form.', 'error'); return; }
+  notifyLoading('Creating fillable PDF…');
+  btnCreateFillable.disabled = true;
+  try {
+    const docName = docNameInput.value.trim() || state.docName || 'fillable_form';
+    const res = await fetch(`/create-fillable/${state.pdfId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: state.fields, doc_name: docName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Creation failed');
+    downloadLink.href = `/download/${data.filename}`;
+    downloadLink.download = data.filename;
+    downloadArea.classList.remove('hidden');
+    notify('Fillable PDF created! Click below to download.', 'success', 5000);
+  } catch (err) {
+    notify(err.message, 'error');
+  } finally {
+    btnCreateFillable.disabled = false;
+  }
+});
+
+
 // ── Save Template ──────────────────────────────────────────────
 btnSaveTemplate.addEventListener('click', () => {
-  if (!state.pdfId) { notify('Upload a PDF first.', 'error'); return; }
+  if (!state.pdfId) { notify('No document loaded.', 'error'); return; }
   templateName.value = '';
   saveTemplateModal.classList.remove('hidden');
   setTimeout(() => templateName.focus(), 50);
@@ -614,14 +810,14 @@ btnConfirmSaveTemplate.addEventListener('click', async () => {
 
 // ── Load Template ──────────────────────────────────────────────
 btnLoadTemplate.addEventListener('click', async () => {
-  if (!state.pdfId) { notify('Upload a PDF first.', 'error'); return; }
+  if (!state.pdfId) { notify('No document loaded.', 'error'); return; }
   loadTemplateModal.classList.remove('hidden');
   templateListWrap.innerHTML = '<p class="muted">Loading…</p>';
   try {
     const res = await fetch(`/templates/${state.pdfId}`);
     const templates = await res.json();
     if (templates.length === 0) {
-      templateListWrap.innerHTML = '<p class="muted">No templates saved for this PDF yet.</p>';
+      templateListWrap.innerHTML = '<p class="muted">No templates saved for this document yet.</p>';
       return;
     }
     const ul = document.createElement('ul');
@@ -629,21 +825,18 @@ btnLoadTemplate.addEventListener('click', async () => {
     templates.forEach(tpl => {
       const li = document.createElement('li');
       li.className = 'template-list-item';
-      const info = document.createElement('div');
-      info.innerHTML = `<div class="tpl-name">${esc(tpl.name)}</div>
-                        <div class="tpl-date">${new Date(tpl.created_at).toLocaleDateString()}</div>`;
+      li.innerHTML = `<div><div class="tpl-name">${esc(tpl.name)}</div><div class="tpl-date">${new Date(tpl.created_at).toLocaleDateString()}</div></div>`;
       const loadBtn = document.createElement('button');
       loadBtn.className = 'btn btn-outline';
       loadBtn.textContent = 'Load';
       loadBtn.addEventListener('click', () => loadTemplate(tpl.id));
-      li.appendChild(info);
       li.appendChild(loadBtn);
       ul.appendChild(li);
     });
     templateListWrap.innerHTML = '';
     templateListWrap.appendChild(ul);
-  } catch (err) {
-    templateListWrap.innerHTML = `<p class="muted" style="color:var(--danger)">Failed to load templates.</p>`;
+  } catch {
+    templateListWrap.innerHTML = '<p class="muted" style="color:var(--danger)">Failed to load templates.</p>';
   }
 });
 closeLoadTemplateModal.addEventListener('click', () => loadTemplateModal.classList.add('hidden'));
@@ -668,11 +861,9 @@ async function loadTemplate(tplId) {
 
 // ── Helpers ────────────────────────────────────────────────────
 function esc(str) {
-  return String(str).replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  })[m]);
+  return String(str).replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
 }
-
 
 // ── PWA Service Worker ─────────────────────────────────────────
 if ('serviceWorker' in navigator) {

@@ -404,4 +404,114 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 label { font-size: .8rem; color: var(--muted); font-weight: 600; }
 .muted { color: var(--muted); font-size: .875rem; }
 
+/* Mode Tabs */
+.mode-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  flex-shrink: 0;
+}
+.mode-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.mode-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+.mode-tab:not(.active):hover { background: var(--bg3); color: var(--text); }
+
+/* Form select */
+.form-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 12px;
+  font-size: .875rem;
+  outline: none;
+  margin-top: 6px;
+  appearance: none;
+  cursor: pointer;
+}
+.form-select:focus { border-color: var(--accent); }
+.form-row { display: flex; flex-direction: column; }
+
+/* Accent button (create fillable) */
+.btn-accent {
+  background: linear-gradient(135deg, #7c3aed, #5b6ef5);
+  color: #fff;
+  border-color: transparent;
+}
+.btn-accent:hover { opacity: .9; }
+
+/* Checkbox field widget */
+.field-widget.checkbox-widget {
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: rgba(91,110,245,.06);
+}
+.checkbox-box {
+  width: 18px; height: 18px;
+  border: 2px solid var(--accent);
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg2);
+  pointer-events: none;
+}
+.checkbox-box.checked::after {
+  content: '✓';
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.field-widget .create-label {
+  flex: 1;
+  font-size: .8rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.field-widget .create-placeholder {
+  font-size: .72rem;
+  color: var(--muted);
+  display: block;
+  pointer-events: none;
+}
+.field-widget.create-text-widget {
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4px 8px;
+}
+.field-type-badge {
+  position: absolute;
+  top: -1px; left: -1px;
+  background: var(--accent);
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  pointer-events: none;
+}
+
 .hidden { display: none !important; }

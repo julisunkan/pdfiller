@@ -38,38 +38,75 @@
     <!-- LEFT PANEL -->
     <aside class="left-panel">
 
-      <!-- Upload Section -->
-      <section class="panel-section" id="uploadSection">
-        <h2 class="section-title">
-          <span class="step-badge">1</span> Upload PDF
-        </h2>
-        <div id="dropZone" class="drop-zone">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="16 16 12 12 8 16"/>
-            <line x1="12" y1="12" x2="12" y2="21"/>
-            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-          </svg>
-          <p>Drag &amp; drop a PDF here</p>
-          <span>or</span>
-          <label for="fileInput" class="btn btn-primary">Browse file</label>
-          <input type="file" id="fileInput" accept=".pdf" hidden />
-        </div>
-        <div id="uploadProgress" class="upload-progress hidden">
-          <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-          <span id="progressLabel">Uploading…</span>
-        </div>
-        <div id="uploadedInfo" class="uploaded-info hidden">
-          <span id="uploadedName" class="file-name"></span>
-          <button id="btnChangeFile" class="btn-text">Change file</button>
-        </div>
-      </section>
+      <!-- Mode Tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tabFill" data-mode="fill">📝 Fill PDF</button>
+        <button class="mode-tab" id="tabCreate" data-mode="create">✨ Create Form</button>
+      </div>
 
-      <!-- Tools Section -->
+      <!-- ── FILL MODE ── -->
+      <div id="fillModePanel">
+        <!-- Upload Section -->
+        <section class="panel-section" id="uploadSection">
+          <h2 class="section-title">
+            <span class="step-badge">1</span> Upload PDF
+          </h2>
+          <div id="dropZone" class="drop-zone">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polyline points="16 16 12 12 8 16"/>
+              <line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            </svg>
+            <p>Drag &amp; drop a PDF here</p>
+            <span>or</span>
+            <label for="fileInput" class="btn btn-primary">Browse file</label>
+            <input type="file" id="fileInput" accept=".pdf" hidden />
+          </div>
+          <div id="uploadProgress" class="upload-progress hidden">
+            <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+            <span id="progressLabel">Uploading…</span>
+          </div>
+          <div id="uploadedInfo" class="uploaded-info hidden">
+            <span id="uploadedName" class="file-name"></span>
+            <button id="btnChangeFile" class="btn-text">Change file</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- ── CREATE MODE ── -->
+      <div id="createModePanel" class="hidden">
+        <section class="panel-section">
+          <h2 class="section-title">
+            <span class="step-badge">1</span> New Blank Form
+          </h2>
+          <div class="form-row">
+            <label for="pageSizeSelect">Page Size</label>
+            <select id="pageSizeSelect" class="form-select">
+              <option value="letter">Letter (8.5 × 11")</option>
+              <option value="a4">A4 (210 × 297 mm)</option>
+              <option value="legal">Legal (8.5 × 14")</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-top:10px">
+            <label for="docNameInput">Document Name</label>
+            <input type="text" id="docNameInput" class="form-input" placeholder="e.g. Job Application" />
+          </div>
+          <button id="btnNewBlank" class="btn btn-primary full-width" style="margin-top:12px">
+            + New Blank Document
+          </button>
+          <div id="createFileInfo" class="uploaded-info hidden" style="margin-top:8px">
+            <span id="createFileName" class="file-name"></span>
+            <button id="btnResetCreate" class="btn-text">Reset</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tools Section (shared) -->
       <section class="panel-section hidden" id="toolsSection">
         <h2 class="section-title">
           <span class="step-badge">2</span> Field Tools
         </h2>
-        <div class="tool-grid">
+        <div class="tool-grid" id="fillToolGrid">
           <button class="tool-btn" id="btnAddText" title="Add text field">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/>
@@ -83,8 +120,16 @@
             </svg>
             Signature
           </button>
+          <!-- Checkbox only shown in create mode -->
+          <button class="tool-btn hidden" id="btnAddCheckbox" title="Add checkbox">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            Checkbox
+          </button>
         </div>
-        <p class="tool-hint">Click a tool then click on the PDF to place the field.</p>
+        <p class="tool-hint" id="toolHint">Click a tool then click on the PDF to place the field.</p>
 
         <!-- Page navigation -->
         <div id="pageNav" class="page-nav hidden">
@@ -94,7 +139,7 @@
         </div>
       </section>
 
-      <!-- Fields Panel -->
+      <!-- Fields Panel (shared) -->
       <section class="panel-section hidden" id="fieldsSection">
         <h2 class="section-title">
           <span class="step-badge">3</span> Fields
@@ -103,17 +148,22 @@
         <ul id="fieldList" class="field-list"></ul>
       </section>
 
-      <!-- Generate Section -->
+      <!-- Generate Section (shared) -->
       <section class="panel-section hidden" id="generateSection">
         <h2 class="section-title">
           <span class="step-badge">4</span> Generate
         </h2>
+        <!-- Fill mode button -->
         <button id="btnGenerate" class="btn btn-primary full-width">
-          ⚡ Generate PDF
+          ⚡ Generate Filled PDF
+        </button>
+        <!-- Create mode button -->
+        <button id="btnCreateFillable" class="btn btn-accent full-width hidden">
+          ✨ Create Fillable PDF
         </button>
         <div id="downloadArea" class="download-area hidden">
           <a id="downloadLink" href="#" class="btn btn-success full-width" download>
-            ⬇ Download Filled PDF
+            ⬇ Download PDF
           </a>
         </div>
       </section>
@@ -126,7 +176,7 @@
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
         </svg>
-        <p>Upload a PDF to get started</p>
+        <p id="pdfPlaceholderText">Upload a PDF to get started</p>
       </div>
       <div class="pdf-viewer-wrap hidden" id="pdfViewerWrap">
         <div class="pdf-canvas-container" id="pdfCanvasContainer">
@@ -166,6 +216,25 @@
       </div>
       <div class="modal-footer">
         <button id="btnConfirmSaveTemplate" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== FIELD LABEL MODAL (Create Mode) ====== -->
+  <div id="fieldLabelModal" class="modal-backdrop hidden">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>Field Properties</h3>
+        <button id="closeFieldLabelModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="fieldLabelInput">Field Label / Name</label>
+        <input type="text" id="fieldLabelInput" class="form-input" placeholder="e.g. Full Name" />
+        <label for="fieldPlaceholderInput" style="margin-top:12px;display:block">Placeholder / Hint</label>
+        <input type="text" id="fieldPlaceholderInput" class="form-input" placeholder="e.g. Enter your full name" />
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmFieldLabel" class="btn btn-primary">Apply</button>
       </div>
     </div>
   </div>

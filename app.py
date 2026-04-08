@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib.utils import ImageReader
+from reportlab.lib.colors import Color, HexColor, black, white, blue
 from PIL import Image
 
 logging.basicConfig(level=logging.DEBUG)
@@ -349,6 +350,178 @@ def download_file(filename):
     return send_from_directory(GENERATED_FOLDER, safe,
                                as_attachment=True,
                                mimetype="application/pdf")
+
+
+# ------ Create Blank PDF (for form designer) --------------------------------
+
+PAGE_SIZES = {
+    "letter": (612, 792),
+    "a4":     (595, 842),
+    "legal":  (612, 1008),
+}
+
+@app.route("/create-blank", methods=["POST"])
+def create_blank():
+    data = request.get_json(force=True) or {}
+    size_key = data.get("page_size", "letter").lower()
+    page_w, page_h = PAGE_SIZES.get(size_key, PAGE_SIZES["letter"])
+
+    # Build a plain white PDF page
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=(page_w, page_h))
+    c.setFillColorRGB(1, 1, 1)
+    c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+    c.save()
+    buf.seek(0)
+
+    pdf_id = str(uuid.uuid4())
+    stored_name = f"{pdf_id}.pdf"
+    save_path = os.path.join(UPLOAD_FOLDER, stored_name)
+    with open(save_path, "wb") as f:
+        f.write(buf.read())
+
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO pdfs (id, filename, original_name, page_count, created_at) VALUES (?,?,?,?,?)",
+        (pdf_id, stored_name, "Blank Form", 1, now_iso()),
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "pdf_id": pdf_id,
+        "original_name": "Blank Form",
+        "page_count": 1,
+        "page_w": page_w,
+        "page_h": page_h,
+        "fields": [],
+    })
+
+
+# ------ Create Fillable AcroForm PDF ----------------------------------------
+
+@app.route("/create-fillable/<pdf_id>", methods=["POST"])
+def create_fillable(pdf_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM pdfs WHERE id=?", (pdf_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "PDF not found"}), 404
+
+    data = request.get_json(force=True)
+    fields = data.get("fields", [])
+    doc_name = data.get("doc_name", "fillable_form").strip() or "fillable_form"
+
+    src_path = os.path.join(UPLOAD_FOLDER, row["filename"])
+
+    try:
+        # Get page dimensions from the source PDF
+        reader = PdfReader(src_path)
+        page_w = float(reader.pages[0].mediabox.width)
+        page_h = float(reader.pages[0].mediabox.height)
+
+        # Build a new PDF with the original page as background + AcroForm fields
+        buf = io.BytesIO()
+        c = rl_canvas.Canvas(buf, pagesize=(page_w, page_h))
+        form = c.acroForm
+
+        # Draw the original page content as a background image via pypdf merge
+        # We'll build the AcroForm layer separately and merge
+        for field in fields:
+            ftype = field.get("type", "text")
+            x_pct  = float(field.get("x_pct", 0))
+            y_pct  = float(field.get("y_pct", 0))
+            w_pct  = float(field.get("w_pct", 20))
+            h_pct  = float(field.get("h_pct", 5))
+            label  = field.get("label", f"field_{field.get('id','')}")
+            placeholder = field.get("placeholder", "")
+
+            pdf_x = x_pct / 100.0 * page_w
+            pdf_y_top = y_pct / 100.0 * page_h
+            pdf_w = w_pct / 100.0 * page_w
+            pdf_h = h_pct / 100.0 * page_h
+            pdf_y = page_h - pdf_y_top - pdf_h  # flip to bottom-left origin
+
+            font_size = max(8, min(int(pdf_h * 0.55), 18))
+
+            if ftype == "text":
+                form.textfield(
+                    name=label,
+                    tooltip=placeholder or label,
+                    x=pdf_x, y=pdf_y,
+                    width=pdf_w, height=pdf_h,
+                    fontSize=font_size,
+                    borderColor=Color(0.6, 0.6, 0.8),
+                    fillColor=Color(0.97, 0.97, 1),
+                    textColor=black,
+                    borderStyle="inset",
+                    forceBorder=True,
+                )
+            elif ftype == "checkbox":
+                box_size = min(pdf_h, pdf_w, 18)
+                form.checkbox(
+                    name=label,
+                    tooltip=placeholder or label,
+                    x=pdf_x, y=pdf_y + (pdf_h - box_size) / 2,
+                    size=box_size,
+                    borderColor=Color(0.4, 0.4, 0.7),
+                    fillColor=white,
+                    forceBorder=True,
+                )
+                # Draw checkbox label text next to box
+                c.setFont("Helvetica", font_size)
+                c.setFillColorRGB(0, 0, 0)
+                c.drawString(pdf_x + box_size + 4,
+                             pdf_y + (pdf_h - font_size) / 2 + 2,
+                             placeholder or label)
+            elif ftype == "signature":
+                # Signature: styled text field as signature area
+                form.textfield(
+                    name=label,
+                    tooltip="Sign here",
+                    x=pdf_x, y=pdf_y,
+                    width=pdf_w, height=pdf_h,
+                    fontSize=font_size,
+                    borderColor=Color(0.3, 0.3, 0.7),
+                    fillColor=Color(0.95, 0.95, 1),
+                    textColor=Color(0, 0, 0.6),
+                    borderStyle="underlined",
+                    forceBorder=True,
+                )
+
+        c.save()
+        buf.seek(0)
+
+        # Merge the AcroForm overlay on top of the original background
+        acro_reader  = PdfReader(buf)
+        bg_reader    = PdfReader(src_path)
+        writer       = PdfWriter()
+
+        bg_page = bg_reader.pages[0]
+        bg_page.merge_page(acro_reader.pages[0])
+        writer.add_page(bg_page)
+        writer.add_metadata({"/Title": doc_name, "/Producer": "PDF Form Filler"})
+
+        safe_name = secure_filename(doc_name.replace(" ", "_"))
+        out_name = f"fillable_{pdf_id}_{uuid.uuid4().hex[:6]}_{safe_name}.pdf"
+        out_path = os.path.join(GENERATED_FOLDER, out_name)
+        with open(out_path, "wb") as f:
+            writer.write(f)
+
+        doc_id = str(uuid.uuid4())
+        conn2 = get_db()
+        conn2.execute(
+            "INSERT INTO filled_documents (id, pdf_id, values_data, out_filename, created_at) VALUES (?,?,?,?,?)",
+            (doc_id, pdf_id, json.dumps(fields), out_name, now_iso()),
+        )
+        conn2.commit()
+        conn2.close()
+
+        return jsonify({"filename": out_name, "doc_id": doc_id})
+
+    except Exception as e:
+        logging.exception("Error creating fillable PDF")
+        return jsonify({"error": str(e)}), 500
 
 
 # ------ PWA manifest & service worker --------------------------------------
