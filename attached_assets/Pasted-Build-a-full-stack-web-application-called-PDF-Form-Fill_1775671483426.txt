@@ -1,0 +1,156 @@
+Build a full-stack web application called **"PDF Form Filler"** using Python Flask and SQLite.
+
+## Core Features
+
+1. Users can upload a PDF file.
+2. Extract form fields from the PDF.
+3. Display the PDF in the browser using PDF.js.
+4. Allow users to:
+
+   * Fill text fields
+   * Drag and position fields anywhere on the PDF (like DocuSign)
+   * Draw a signature on a canvas and place it on the PDF
+5. Generate a filled PDF on the server and allow download.
+6. Save reusable templates (field positions + structure) in SQLite.
+7. Load saved templates and reuse them.
+
+---
+
+## Technical Requirements
+
+### Backend (Flask)
+
+* Use Flask for server
+* Use SQLite for database
+* Use pypdf for reading and filling PDFs
+* Store uploaded PDFs in `/uploads`
+* Store generated PDFs in `/generated`
+
+### Database Schema
+
+Create tables:
+
+* pdfs(id, filename)
+* templates(id, pdf_id, field_data JSON)
+* (optional) filled_documents(id, template_id, values JSON)
+
+---
+
+## API Endpoints
+
+* POST /upload → upload PDF and return extracted fields
+* POST /fill/<pdf_id> → generate filled PDF
+* POST /save-template/<pdf_id> → save field layout
+* GET /template/<id> → load saved template
+* GET /download/<filename> → download generated PDF
+
+---
+
+## Frontend
+
+* Use HTML, CSS, and vanilla JavaScript (no frameworks)
+* Use PDF.js to render PDF in a canvas
+* Overlay draggable input fields on top of the PDF
+* Allow adding:
+
+  * Text fields
+  * Signature field
+
+---
+
+## Signature Feature
+
+* Provide a canvas for users to draw signature
+* Convert signature to base64 image
+* Send to backend and embed into PDF
+
+---
+
+## Drag & Drop UI
+
+* Fields must be:
+
+  * Draggable
+  * Positioned absolutely over PDF
+* Save coordinates (x, y) relative to canvas
+
+---
+
+## Coordinate Mapping
+
+* Convert canvas coordinates to PDF coordinates before writing to PDF
+* Handle scaling properly
+
+---
+
+## Notifications
+
+* DO NOT use popup alerts
+* Show inline messages (success, error, loading)
+
+---
+
+## Progressive Web App (PWA)
+
+* Add manifest.json
+* Add service worker
+* Cache static assets
+* Make app installable
+
+---
+
+## UI/UX
+
+* Clean layout
+* Section for:
+
+  * Upload PDF
+  * Preview PDF
+  * Field tools (add text/signature)
+  * Form fields panel
+* Show "Download PDF" button after generation
+
+---
+
+## Security & Validation
+
+* Accept only PDF files
+* Limit file size
+* Use unique filenames (UUID)
+
+---
+
+## Project Structure
+
+* app.py
+* /templates
+* /static
+
+  * app.js
+  * styles.css
+  * service-worker.js
+  * manifest.json
+* /uploads
+* /generated
+* database.db
+
+---
+
+## Bonus Features (if possible)
+
+* Multi-page PDF support
+* Resize draggable fields
+* Delete fields
+* Preview filled PDF before download
+
+---
+
+## Output Requirements
+
+* Provide complete working code
+* Include comments explaining key parts
+* Ensure app runs with: `python app.py`
+
+---
+
+The final app should behave like a lightweight DocuSign-style PDF editor that runs entirely in the browser with server-side PDF generation.
