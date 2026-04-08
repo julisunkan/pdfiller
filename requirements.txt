@@ -3,3 +3,9 @@ pypdf==5.4.0
 reportlab==4.4.1
 Pillow==11.2.1
 gunicorn==23.0.0
+flask
+gunicorn
+Pillow
+pypdf
+reportlab
+werkzeug

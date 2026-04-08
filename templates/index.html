@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Form Filler</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- ====== HEADER ====== -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        PDF Form Filler
+      </div>
+      <div id="headerActions" class="header-actions hidden">
+        <button id="btnSaveTemplate" class="btn btn-outline">💾 Save Template</button>
+        <button id="btnLoadTemplate" class="btn btn-outline">📂 Load Template</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====== NOTIFICATIONS ====== -->
+  <div id="notification" class="notification hidden"></div>
+
+  <!-- ====== MAIN ====== -->
+  <main class="main-layout">
+
+    <!-- LEFT PANEL -->
+    <aside class="left-panel">
+
+      <!-- Upload Section -->
+      <section class="panel-section" id="uploadSection">
+        <h2 class="section-title">
+          <span class="step-badge">1</span> Upload PDF
+        </h2>
+        <div id="dropZone" class="drop-zone">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="16 16 12 12 8 16"/>
+            <line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+          </svg>
+          <p>Drag &amp; drop a PDF here</p>
+          <span>or</span>
+          <label for="fileInput" class="btn btn-primary">Browse file</label>
+          <input type="file" id="fileInput" accept=".pdf" hidden />
+        </div>
+        <div id="uploadProgress" class="upload-progress hidden">
+          <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+          <span id="progressLabel">Uploading…</span>
+        </div>
+        <div id="uploadedInfo" class="uploaded-info hidden">
+          <span id="uploadedName" class="file-name"></span>
+          <button id="btnChangeFile" class="btn-text">Change file</button>
+        </div>
+      </section>
+
+      <!-- Tools Section -->
+      <section class="panel-section hidden" id="toolsSection">
+        <h2 class="section-title">
+          <span class="step-badge">2</span> Field Tools
+        </h2>
+        <div class="tool-grid">
+          <button class="tool-btn" id="btnAddText" title="Add text field">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/>
+              <line x1="12" y1="4" x2="12" y2="20"/>
+            </svg>
+            Text Field
+          </button>
+          <button class="tool-btn" id="btnAddSignature" title="Add signature field">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+            </svg>
+            Signature
+          </button>
+        </div>
+        <p class="tool-hint">Click a tool then click on the PDF to place the field.</p>
+
+        <!-- Page navigation -->
+        <div id="pageNav" class="page-nav hidden">
+          <button id="btnPrevPage" class="btn btn-outline btn-sm">← Prev</button>
+          <span id="pageLabel">Page 1 / 1</span>
+          <button id="btnNextPage" class="btn btn-outline btn-sm">Next →</button>
+        </div>
+      </section>
+
+      <!-- Fields Panel -->
+      <section class="panel-section hidden" id="fieldsSection">
+        <h2 class="section-title">
+          <span class="step-badge">3</span> Fields
+          <span id="fieldCount" class="badge">0</span>
+        </h2>
+        <ul id="fieldList" class="field-list"></ul>
+      </section>
+
+      <!-- Generate Section -->
+      <section class="panel-section hidden" id="generateSection">
+        <h2 class="section-title">
+          <span class="step-badge">4</span> Generate
+        </h2>
+        <button id="btnGenerate" class="btn btn-primary full-width">
+          ⚡ Generate PDF
+        </button>
+        <div id="downloadArea" class="download-area hidden">
+          <a id="downloadLink" href="#" class="btn btn-success full-width" download>
+            ⬇ Download Filled PDF
+          </a>
+        </div>
+      </section>
+    </aside>
+
+    <!-- CENTER — PDF Viewer -->
+    <section class="pdf-area" id="pdfArea">
+      <div class="pdf-placeholder" id="pdfPlaceholder">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <p>Upload a PDF to get started</p>
+      </div>
+      <div class="pdf-viewer-wrap hidden" id="pdfViewerWrap">
+        <div class="pdf-canvas-container" id="pdfCanvasContainer">
+          <canvas id="pdfCanvas"></canvas>
+          <div id="fieldsOverlay" class="fields-overlay"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ====== SIGNATURE MODAL ====== -->
+  <div id="sigModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Draw Signature</h3>
+        <button id="closeSigModal" class="modal-close">✕</button>
+      </div>
+      <canvas id="sigCanvas" width="500" height="200"></canvas>
+      <div class="modal-footer">
+        <button id="btnClearSig" class="btn btn-outline">Clear</button>
+        <button id="btnSaveSig" class="btn btn-primary">Use Signature</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SAVE TEMPLATE MODAL ====== -->
+  <div id="saveTemplateModal" class="modal-backdrop hidden">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>Save Template</h3>
+        <button id="closeSaveTemplateModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="templateName">Template Name</label>
+        <input type="text" id="templateName" class="form-input" placeholder="e.g. Invoice Template" />
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmSaveTemplate" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LOAD TEMPLATE MODAL ====== -->
+  <div id="loadTemplateModal" class="modal-backdrop hidden">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>Load Template</h3>
+        <button id="closeLoadTemplateModal" class="modal-close">✕</button>
+      </div>
+      <div id="templateListWrap" class="modal-body">
+        <p class="muted">Loading templates…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
